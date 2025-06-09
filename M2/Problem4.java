@@ -31,18 +31,56 @@ public class Problem4 extends BaseClass {
         for(int i = 0; i <arr.length; i++){
             // Start Solution Edits
             
+            // UCID: mr822, Date: 06/09/2025
+            // Plan:
+            // 1. Remove all non-alphanumeric characters (except space) using regex
+            // 2. Trim leading/trailing spaces and reduce multiple spaces to one
+            // 3. Convert to Title Case by splitting, capitalizing, and joining
+            // 4. Assign to placeholderForModifiedPhrase
+            // 5. For extra credit: if length >= 3, extract 3 middle characters from cleaned phrase
+            //    Else, assign "Not enough characters"
+
+            String cleaned = arr[i].replaceAll("[^a-zA-Z0-9 ]", "");  // remove non-alphanumeric except space
+            cleaned = cleaned.trim().replaceAll("\\s+", " ");          // remove extra spaces
+
+            // Title Case: capitalize each word
+            String[] words = cleaned.split(" ");
+            StringBuilder titleCase = new StringBuilder();
+            for (String word : words) {
+                if (word.length() > 0) {
+                    titleCase.append(Character.toUpperCase(word.charAt(0)));
+                    if (word.length() > 1) {
+                        titleCase.append(word.substring(1).toLowerCase());
+                    }
+                    titleCase.append(" ");
+                }
+            }
+            placeholderForModifiedPhrase = titleCase.toString().trim();
+
+            // Extra Credit: Middle 3 characters
+            String flat = placeholderForModifiedPhrase.replaceAll(" ", "");
+            if (flat.length() >= 3) {
+                int mid = flat.length() / 2;
+                if (flat.length() % 2 == 1) {
+                    placeholderForMiddleCharacters = flat.substring(mid - 1, mid + 2);
+                } else {
+                    placeholderForMiddleCharacters = flat.substring(mid - 1, mid + 2); // still 3 chars
+                }
+            } else {
+                placeholderForMiddleCharacters = "Not enough characters";
+            }
+
+
              // End Solution Edits
             System.out.println(String.format("Index[%d] \"%s\" | Middle: \"%s\"",i, placeholderForModifiedPhrase, placeholderForMiddleCharacters));
         }
-
-       
 
         
         System.out.println("\n______________________________________");
     }
 
     public static void main(String[] args) {
-        final String ucid = "mt85"; // <-- change to your UCID
+        final String ucid = "mr822"; // <-- change to your UCID
         // No edits below this line
         printHeader(ucid, 4);
 
