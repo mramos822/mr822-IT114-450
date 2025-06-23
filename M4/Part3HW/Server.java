@@ -1,4 +1,4 @@
-package M4.Part3;
+package M4.Part3HW;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -146,4 +146,16 @@ public class Server {
         System.out.println("Server Stopped");
     }
 
+    // UCID: mr822
+    // Date: 2025-06-23
+    // Broadcasts coin flip result to all clients
+    public void flipCoin(String who) {
+    String result = Math.random() < 0.5 ? "Heads" : "Tails";
+    String message = who + " flipped a coin and got " + result;
+    relay(null, message);
 }
+
+
+
+}
+
