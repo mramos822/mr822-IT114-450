@@ -222,8 +222,12 @@ public class ServerThread extends Thread {
                         wasCommand = true;
                     }
                     break;
-
-
+                    case "shuffle":
+                        // ucid: mr822 - 06/23/2025
+                        String shuffleText = String.join(" ", Arrays.copyOfRange(commandData, 2, commandData.length));
+                        server.handleShuffle(this, shuffleText);
+                        wasCommand = true;
+                        break;
 
                     // added more cases/breaks as needed for other commands
                     default:

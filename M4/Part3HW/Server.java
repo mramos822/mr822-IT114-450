@@ -168,6 +168,21 @@ public class Server {
         }
     }
 
+    // ucid: mr822 - 06/23/2025
+    protected synchronized void handleShuffle(ServerThread sender, String original) {
+        char[] chars = original.toCharArray();
+        java.util.Collections.shuffle(java.util.Arrays.asList(chars)); // won't work
+        // Fix: shuffle via list conversion
+        java.util.List<Character> charList = new java.util.ArrayList<>();
+        for (char c : chars) charList.add(c);
+        java.util.Collections.shuffle(charList);
+        StringBuilder shuffled = new StringBuilder();
+        for (char c : charList) shuffled.append(c);
+
+        String senderName = sender.getUsername() != null ? sender.getUsername() : "User[" + sender.getClientId() + "]";
+        String message = "Shuffled from " + senderName + ": " + shuffled;
+        relay(null, message);
+    }
 
 }
 

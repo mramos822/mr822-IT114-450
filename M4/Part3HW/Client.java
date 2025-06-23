@@ -144,6 +144,14 @@ public class Client {
                 wasCommand = true;
             }
         }
+        else if (text.startsWith("/shuffle")) {
+            // ucid: mr822 - 06/23/2025
+            String msg = text.replaceFirst("/shuffle", "").trim();
+            String[] commandData = { Constants.COMMAND_TRIGGER, "shuffle", msg };
+            sendToServer(String.join(",", commandData));
+            wasCommand = true;
+        }
+
 
 
         return wasCommand;
