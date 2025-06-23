@@ -82,7 +82,7 @@ public class Server {
      * @param sender  ServerThread (client) sending the message or null if it's a
      *                server-generated message
      */
-    private synchronized void relay(ServerThread sender, String message) {
+    protected synchronized void relay(ServerThread sender, String message) {
         // we'll temporarily use the thread id as the client identifier to
         // show in all client's chat. This isn't good practice since it's subject to
         // change as clients connect/disconnect (i.e., a reconnecting client likely
@@ -146,15 +146,27 @@ public class Server {
         System.out.println("Server Stopped");
     }
 
-    // UCID: mr822
-    // Date: 2025-06-23
-    // Broadcasts coin flip result to all clients
-    public void flipCoin(String who) {
-    String result = Math.random() < 0.5 ? "Heads" : "Tails";
-    String message = who + " flipped a coin and got " + result;
-    relay(null, message);
-}
+    // ucid: mr822 - 06/23/2025
+    public void handleFlipCommand(ServerThread requester) {
+        String result = Math.random() < 0.5 ? "Heads" : "Tails";
+        String message = requester.getUsername() + " flipped a coin and got " + result;
+        relay(null, message);
+    }
 
+    // ucid: mr822 - 06/23/2025
+    protected synchronized void handlePrivateMessage(ServerThread sender, long targetId, String msg) {
+        String senderName = sender.getUsername() != null ? sender.getUsername() : "User[" + sender.getClientId() + "]";
+        String formatted = "Server: PM from " + sender.getUsername() + ": " + msg;
+
+        // Send to sender
+        sender.sendToClient(formatted);
+
+        // Send to receiver if they exist
+        ServerThread receiver = connectedClients.get(targetId);
+        if (receiver != null && receiver != sender) {
+            receiver.sendToClient(formatted);
+        }
+    }
 
 
 }

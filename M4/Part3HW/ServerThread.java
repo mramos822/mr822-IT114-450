@@ -1,5 +1,6 @@
-package M4.Part3;
+package M4.Part3HW;
 
+import M4.Part3HW.TextFX.Color;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -7,8 +8,6 @@ import java.net.Socket;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Consumer;
-
-import M4.Part3.TextFX.Color;
 
 /**
  * A server-side representation of a single client
@@ -21,6 +20,8 @@ public class ServerThread extends Thread {
     // more easily
     private long clientId;
     private Consumer<ServerThread> onInitializationComplete; // callback to inform when this object is ready
+    private String username; // ucid: mr822 - 06/23/2025
+
 
     /**
      * A wrapper method so we don't need to keep typing out the long/complex sysout
@@ -57,7 +58,7 @@ public class ServerThread extends Thread {
         // get communication channels to single client
         this.client = myClient;
         this.server = server; // In the future we'll have a different way to reference the Server
-        this.clientId = this.threadId(); // An id associated with the thread instance, used as a temporary identifier
+        this.clientId = this.getId(); // An id associated with the thread instance, used as a temporary identifier
         this.onInitializationComplete = onInitializationComplete;
 
     }
@@ -201,6 +202,29 @@ public class ServerThread extends Thread {
                         server.handleReverseText(this, relevantText);
                         wasCommand = true;
                         break;
+                    case "flip":
+                        // ucid: mr822 - 06/23/2025
+                        server.handleFlipCommand(this);
+                        wasCommand = true;
+                        break;
+                    case "name":
+                        // ucid: mr822 - 06/23/2025
+                        this.username = String.join(" ", Arrays.copyOfRange(commandData, 2, commandData.length)).trim();
+                        server.relay(null, username + " has joined.");
+                        wasCommand = true;
+                        break;
+                    case "pm":
+                    // ucid: mr822 - 06/23/2025
+                    if (commandData.length >= 4) {
+                        long targetId = Long.parseLong(commandData[2].trim());
+                        String msg = String.join(" ", Arrays.copyOfRange(commandData, 3, commandData.length));
+                        server.handlePrivateMessage(this, targetId, msg);
+                        wasCommand = true;
+                    }
+                    break;
+
+
+
                     // added more cases/breaks as needed for other commands
                     default:
                         break;
@@ -222,4 +246,11 @@ public class ServerThread extends Thread {
         }
         info("ServerThread cleanup() end");
     }
+
+    // ucid: mr822 - 06/23/2025
+public String getUsername() {
+    return this.username;
 }
+
+}
+

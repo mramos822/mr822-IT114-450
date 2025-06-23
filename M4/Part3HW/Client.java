@@ -1,5 +1,6 @@
-package M4.Part3;
+package M4.Part3HW;
 
+import M4.Part3HW.TextFX.Color;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -9,8 +10,6 @@ import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import M4.Part3.TextFX.Color;
 
 /**
  * Demoing bi-directional communication between client and server in a
@@ -122,6 +121,31 @@ public class Client {
             sendToServer(String.join(",", commandData));
             wasCommand = true;
         }
+        else if ("/flip".equalsIgnoreCase(text)) {
+        // ucid: mr822 - 06/23/2025
+        String[] commandData = { Constants.COMMAND_TRIGGER, "flip" };
+        sendToServer(String.join(",", commandData));
+        wasCommand = true;
+        }
+
+        else if (text.startsWith("/name")) {
+            // ucid: mr822 - 06/23/2025
+            String name = text.replaceFirst("/name", "").trim();
+            String[] commandData = { Constants.COMMAND_TRIGGER, "name", name };
+            sendToServer(String.join(",", commandData));
+            wasCommand = true;
+        }
+        else if (text.startsWith("/pm")) {
+            // ucid: mr822 - 06/23/2025
+            String[] split = text.trim().split(" ", 3);
+            if (split.length >= 3) {
+                String[] commandData = { Constants.COMMAND_TRIGGER, "pm", split[1], split[2] };
+                sendToServer(String.join(",", commandData));
+                wasCommand = true;
+            }
+        }
+
+
         return wasCommand;
     }
 
