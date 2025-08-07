@@ -1,60 +1,40 @@
 package Project.Common;
 
 import java.io.Serializable;
-
-
-// UCID: mramos2001
-// Date: 2025-07-21
-// Payload.java - Base class for data sent between client and server
+import java.util.List;
 
 public class Payload implements Serializable {
     private PayloadType payloadType;
     private long clientId;
     private String message;
+    private String choice;
 
-    /**
-     * @return the payloadType
-     */
+    private List<UserStatus> userStatusList;
+
+
     public PayloadType getPayloadType() {
         return payloadType;
     }
 
-    /**
-     * @param payloadType the payloadType to set
-     */
     public void setPayloadType(PayloadType payloadType) {
         this.payloadType = payloadType;
     }
 
-    /**
-     * @return the clientId
-     */
     public long getClientId() {
         return clientId;
     }
 
-    /**
-     * @param clientId the clientId to set
-     */
     public void setClientId(long clientId) {
         this.clientId = clientId;
     }
 
-    /**
-     * @return the message
-     */
     public String getMessage() {
         return message;
     }
 
-    /**
-     * @param message the message to set
-     */
     public void setMessage(String message) {
         this.message = message;
     }
-
-    private String choice;
 
     public String getChoice() {
         return choice;
@@ -64,6 +44,14 @@ public class Payload implements Serializable {
         this.choice = choice;
     }
 
+    // Add getter and setter for userStatusList
+    public List<UserStatus> getUserStatusList() {
+        return userStatusList;
+    }
+
+    public void setUserStatusList(List<UserStatus> userStatusList) {
+        this.userStatusList = userStatusList;
+    }
 
     @Override
     public String toString() {

@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -173,14 +174,16 @@ public enum Server {
      * @return
      */
     protected List<String> listRooms(String roomQuery) {
-        final String nameCheck = roomQuery.toLowerCase();
+        final String nameCheck = roomQuery == null ? "" : roomQuery.toLowerCase();
         return rooms.values().stream()
-                .filter(room -> room.getName().toLowerCase().contains(nameCheck))// find partially matched rooms
-                .map(room -> room.getName())// map room to String (name)
+                .map(Room::getName)
+                .filter(name -> !name.equalsIgnoreCase(Room.LOBBY)) // exclude the lobby
+                .filter(name -> name.toLowerCase().contains(nameCheck)) // match
+                .sorted() // alphabetically sort
                 .limit(10) // limit to 10 results
-                .sorted() // sort the results alphabetically
-                .collect(Collectors.toList()); // return a mutable list
+                .collect(Collectors.toList());
     }
+
 
     protected void removeRoom(Room room) {
         rooms.remove(room.getName().toLowerCase());
@@ -241,5 +244,28 @@ public enum Server {
         server.start(port);
         LoggerUtil.INSTANCE.warning("Server Stopped");
     }
+
+    public List<String> getRoomList() {
+        return rooms.keySet().stream().filter(name -> !name.equalsIgnoreCase(Room.LOBBY)).toList();
+    }
+
+    public Map<String, Room> listRoomsWithCounts() {
+        return rooms.entrySet().stream()
+            .filter(entry -> !entry.getKey().equalsIgnoreCase(Room.LOBBY))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    public Room getRoom(String roomName) throws RoomNotFoundException {
+        Room room = rooms.get(roomName);
+        if (room == null) {
+            throw new RoomNotFoundException("Room not found: " + roomName);
+        }
+        return room;
+    }
+
+    public Room getRoomByName(String name) {
+        return rooms.get(name);
+    }
+
 
 }

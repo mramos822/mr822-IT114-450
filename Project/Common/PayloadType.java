@@ -1,17 +1,28 @@
 package Project.Common;
 
 public enum PayloadType {
-    CLIENT_CONNECT, // client requesting to connect to server (passing of initialization data [name])
-    CLIENT_ID,       // server sending client id
-    SYNC_CLIENT,     // silent syncing of clients in room
-    DISCONNECT,      // distinct disconnect action
+    CLIENT_CONNECT,
+    CLIENT_ID,     
+    SYNC_CLIENT,    
+    DISCONNECT,    
     ROOM_CREATE,
     ROOM_JOIN,
     ROOM_LEAVE,
     REVERSE,
-    MESSAGE,         // sender and message
-    ROOM_LIST,       // list of rooms
+    MESSAGE,         
+    ROOM_LIST,  
     START,
-    CHOICE           // support /pick command in RPS
-    
+    CHOICE,
+    READY_STATUS,
+    POINTS,
+    POSTGAME_COUNTDOWN_TICK,
+    READY_STATUS_REMOVE,
+    READY,
+    EXTRA_OPTIONS,
+    GAME_SETTINGS,
+    AWAY_STATUS,
+    HOST_DISCONNECTED,
+    SPECTATOR,
+    USER_STATUS_UPDATE,
+    ROOM_CLOSING
 }

@@ -5,9 +5,10 @@ public class User {
     private String clientName;
     private int points = 0;
 
-    public void incrementPoints() {
-        points++;
+    public void addPoints(int pts) {
+        this.points += pts;
     }
+
 
     public int getPoints() {
         return points;
@@ -54,4 +55,25 @@ public class User {
         this.clientName = null;
         this.points = 0;
     }
+
+    private boolean isAway = false;
+
+    public boolean isAway() {
+        return isAway;
+    }
+
+    public void setAway(boolean away) {
+        this.isAway = away;
+    }
+
+    private boolean spectator;
+
+    public boolean isSpectator() {
+        return spectator;
+    }
+
+    public void setSpectator(boolean spectator) {
+        this.spectator = spectator;
+    }
+
 }

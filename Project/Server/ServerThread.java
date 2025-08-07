@@ -2,6 +2,7 @@ package Project.Server;
 
 import Project.Common.ConnectionPayload;
 import Project.Common.Constants;
+import Project.Common.GameSettingsPayload;
 import Project.Common.LoggerUtil;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
@@ -10,6 +11,7 @@ import Project.Common.RoomResultPayload;
 import Project.Common.TextFX;
 import Project.Common.TextFX.Color;
 import Project.Common.User;
+import Project.Exceptions.RoomNotFoundException;
 import java.net.Socket;
 import java.util.List;
 import java.util.Objects;
@@ -30,9 +32,11 @@ public class ServerThread extends BaseServerThread {
      */
     @Override
     protected void info(String message) {
-        LoggerUtil.INSTANCE
-                .info(TextFX.colorize(String.format("Thread[%s]: %s", this.getClientId(), message), Color.CYAN));
+        if (!message.contains("ROOM_LIST")) { // Skip spammy logs
+            LoggerUtil.INSTANCE.info(TextFX.colorize(String.format("Thread[%s]: %s", this.getClientId(), message), Color.CYAN));
+        }
     }
+
 
     /**
      * Wraps the Socket connection and takes a Server reference and a callback
@@ -108,6 +112,7 @@ public class ServerThread extends BaseServerThread {
         switch (action) {
             case JOIN:
                 payload.setPayloadType(PayloadType.ROOM_JOIN);
+                payload.setMessage("You joined room " + currentRoom.getRoomName());
                 break;
             case LEAVE:
                 payload.setPayloadType(PayloadType.ROOM_LEAVE);
@@ -120,8 +125,15 @@ public class ServerThread extends BaseServerThread {
         }
         payload.setClientId(clientId);
         payload.setClientName(clientName);
+
+        if (currentRoom != null && clientId == getClientId()) {
+            payload.setHost(currentRoom.isHost(this));
+        }
+
         return sendToClient(payload);
+
     }
+
 
     /**
      * Sends this client's id to the client.
@@ -133,8 +145,8 @@ public class ServerThread extends BaseServerThread {
         ConnectionPayload payload = new ConnectionPayload();
         payload.setPayloadType(PayloadType.CLIENT_ID);
         payload.setClientId(getClientId());
-        payload.setClientName(getClientName());// Can be used as a Server-side override of username (i.e., profanity
-                                               // filter)
+        payload.setClientName(getClientName());
+                                               
         return sendToClient(payload);
     }
 
@@ -156,14 +168,13 @@ public class ServerThread extends BaseServerThread {
         return sendToClient(payload);
     }
 
-    // End Send*() Methods
     @Override
     protected void processPayload(Payload incoming) {
 
         switch (incoming.getPayloadType()) {
             case CLIENT_CONNECT:
                 setClientName(((ConnectionPayload) incoming).getClientName().trim());
-                user.setClientId(getClientId()); // sync user object
+                user.setClientId(getClientId());
                 user.setClientName(getClientName());
                 break;
             case DISCONNECT:
@@ -177,10 +188,53 @@ public class ServerThread extends BaseServerThread {
                 break;
             case ROOM_CREATE:
                 currentRoom.handleCreateRoom(this, incoming.getMessage());
+
+                if (currentRoom instanceof GameRoom gameRoom) {
+                    GameSettingsPayload settings = gameRoom.getCurrentGameSettingsPayload();
+                    sendToClient(settings);
+                }
                 break;
+
             case ROOM_JOIN:
-                currentRoom.handleJoinRoom(this, incoming.getMessage());
+                try {
+                    Server.INSTANCE.joinRoom(incoming.getMessage(), this);
+
+                    if (currentRoom instanceof GameRoom gameRoom) {
+                        GameSettingsPayload settings = new GameSettingsPayload();
+                        settings.setGameMode(gameRoom.getGameMode());
+                        settings.setChoiceCooldown(gameRoom.isChoiceCooldown());
+                        settings.setAllowChoiceChanges(gameRoom.isAllowChoiceChanges());
+                        sendToClient(settings);
+
+                        ConnectionPayload roomStatusPayload = new ConnectionPayload();
+                        roomStatusPayload.setPayloadType(PayloadType.ROOM_JOIN);
+                        roomStatusPayload.setClientId(getClientId());
+                        roomStatusPayload.setClientName(getClientName());
+                        roomStatusPayload.setMessage(gameRoom.isGameStarted() ? "STARTED" : "NOT_STARTED");
+                        sendToClient(roomStatusPayload);
+
+                    } else {
+                        ConnectionPayload roomStatusPayload = new ConnectionPayload();
+                        roomStatusPayload.setPayloadType(PayloadType.ROOM_JOIN);
+                        roomStatusPayload.setClientId(getClientId());
+                        roomStatusPayload.setClientName(getClientName());
+                        roomStatusPayload.setMessage("NOT_STARTED");
+                        sendToClient(roomStatusPayload);
+                    }
+
+                } catch (RoomNotFoundException e) {
+                    LoggerUtil.INSTANCE.warning("Room not found: " + incoming.getMessage());
+
+                    ConnectionPayload failurePayload = new ConnectionPayload();
+                    failurePayload.setPayloadType(PayloadType.ROOM_JOIN);
+                    failurePayload.setClientId(getClientId());
+                    failurePayload.setClientName(getClientName());
+                    failurePayload.setMessage("Room \"" + incoming.getMessage() + "\" does not exist.");
+
+                    sendToClient(failurePayload);
+                }
                 break;
+
             case ROOM_LEAVE:
                 currentRoom.handleJoinRoom(this, Room.LOBBY);
                 break;
@@ -200,6 +254,97 @@ public class ServerThread extends BaseServerThread {
                     gameRoom.onSessionStart();
                 }
                 break;
+            case READY:
+                if (currentRoom != null) {
+                    String msg = incoming.getMessage();
+                    boolean isSpectator = "spectator".equalsIgnoreCase(msg);
+                    boolean isNowReady = "ready".equalsIgnoreCase(msg);
+
+                    getUser().setSpectator(isSpectator);
+
+                    if (currentRoom instanceof GameRoom gameRoom) {
+                        gameRoom.handleReady(this, isNowReady, isSpectator);
+
+                        if (!isSpectator && currentRoom.isHost(this)) {
+                            GameSettingsPayload settings = gameRoom.getCurrentGameSettingsPayload();
+                            for (ServerThread player : gameRoom.getActivePlayers()) {
+                                player.sendToClient(settings);
+                            }
+                        }
+                    } else {
+                        this.setReady(isNowReady);
+                        currentRoom.broadcastReadyStatus(getClientId(), isNowReady);
+                    }
+                }
+                break;
+
+
+
+
+            case EXTRA_OPTIONS:
+                if (incoming instanceof GameSettingsPayload settings && currentRoom instanceof GameRoom room) {
+                    room.setGameMode(
+                        settings.getGameMode(),
+                        settings.isChoiceCooldown(),
+                        getClientName()
+                    );
+                }
+                break;
+
+            case GAME_SETTINGS:
+                if (incoming instanceof GameSettingsPayload settings && currentRoom instanceof GameRoom room) {
+                    room.setGameMode(
+                        settings.getGameMode(),
+                        settings.isChoiceCooldown(),
+                        getClientName()
+                    );
+
+                    room.setAllowChoiceChanges(settings.isAllowChoiceChanges());
+
+                    GameSettingsPayload broadcastPayload = new GameSettingsPayload();
+                    broadcastPayload.setGameMode(settings.getGameMode());
+                    broadcastPayload.setChoiceCooldown(settings.isChoiceCooldown());
+                    broadcastPayload.setAllowChoiceChanges(settings.isAllowChoiceChanges());
+
+                    for (ServerThread client : room.getActivePlayers()) {
+                        client.sendToClient(broadcastPayload);
+                    }
+                }
+                break;
+
+
+                // UCID: mramos2001
+                // Date: 08/06/2025
+                // Description: Server receives AWAY payload, updates user status, broadcasts, and logs message.
+                case AWAY_STATUS:
+                    boolean nowAway = Boolean.parseBoolean(incoming.getMessage());
+                    user.setAway(nowAway);
+
+                    String awayMessage = getClientName() + (nowAway ? " is away." : " is no longer away.");
+                    if (currentRoom != null) {
+                        currentRoom.broadcastMessage(awayMessage);
+                    }
+
+                    Payload sync = new Payload();
+                    sync.setPayloadType(PayloadType.AWAY_STATUS);
+                    sync.setMessage(getClientId() + ";" + nowAway);
+
+                    if (currentRoom instanceof GameRoom gameRoom) {
+                        for (ServerThread thread : gameRoom.getActivePlayers()) {
+                            thread.sendToClient(sync);
+                        }
+                    }
+                    break;
+                case SPECTATOR:
+                    boolean isSpectator = Boolean.parseBoolean(incoming.getMessage());
+                    getUser().setSpectator(isSpectator);
+
+                    if (currentRoom != null) {
+                        currentRoom.broadcastReadyStatus(getUser().getClientId(), false);
+                    }
+                    break;
+
+
 
             default:
                 LoggerUtil.INSTANCE.warning(TextFX.colorize("Unknown payload type received", Color.RED));
@@ -209,7 +354,44 @@ public class ServerThread extends BaseServerThread {
 
     @Override
     protected void onInitialized() {
-        // once receiving the desired client name the object is ready
         onInitializationComplete.accept(this);
     }
+
+    private boolean ready = false;
+
+    public boolean isReady() {
+        return ready;
+    }
+
+    public void setReady(boolean ready) {
+        this.ready = ready;
+    }
+
+    public void sendCountdownTick(String message) {
+        Payload tick = new Payload();
+        tick.setPayloadType(PayloadType.POSTGAME_COUNTDOWN_TICK);
+        tick.setMessage(message);
+        sendToClient(tick);
+    }
+
+    public void sendKickToLobby() {
+        Payload kick = new Payload();
+        kick.setPayloadType(PayloadType.DISCONNECT);
+        kick.setMessage("Return to Lobby");
+        sendToClient(kick);
+    }
+
+    // UCID: mramos2001
+    // Date: 2025-08-06
+    // Description: Tracks the last ready message type sent by this client ("ready", "not_ready", "spectator")
+    private String lastReadyMessage = "";
+
+    public void setLastReadyMessage(String msg) {
+        this.lastReadyMessage = msg != null ? msg : "";
+    }
+
+    public String getLastReadyMessage() {
+        return lastReadyMessage;
+    }
+
 }

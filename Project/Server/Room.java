@@ -1,6 +1,8 @@
 package Project.Server;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import Project.Common.Constants;
 import Project.Common.LoggerUtil;
@@ -9,13 +11,20 @@ import Project.Common.TextFX;
 import Project.Common.TextFX.Color;
 import Project.Exceptions.DuplicateRoomException;
 import Project.Exceptions.RoomNotFoundException;
+import Project.Common.RoomSummary;
+import Project.Common.RoomResultPayload;
+import Project.Common.Payload;
+import Project.Common.PayloadType;
+import java.util.Collection;
 
-public class Room implements AutoCloseable {
+
+public class Room implements AutoCloseable, RoomSummary {
     private final String name;// unique name of the Room
     private volatile boolean isRunning = false;
     private final ConcurrentHashMap<Long, ServerThread> clientsInRoom = new ConcurrentHashMap<Long, ServerThread>();
 
     public final static String LOBBY = "lobby";
+    private ServerThread host = null;
 
     private void info(String message) {
         LoggerUtil.INSTANCE.info(TextFX.colorize(String.format("Room[%s]: %s", name, message), Color.PURPLE));
@@ -39,6 +48,12 @@ public class Room implements AutoCloseable {
             info("Attempting to add a client that already exists in the room");
             return;
         }
+
+        if (clientsInRoom.isEmpty() && !Room.LOBBY.equalsIgnoreCase(name)) {
+            host = client;
+            info("Assigned " + client.getClientName() + " as host");
+        }
+
         clientsInRoom.put(client.getClientId(), client);
         client.setCurrentRoom(this);
         client.sendResetUserList();
@@ -223,8 +238,11 @@ public class Room implements AutoCloseable {
 
     // start handle methods
     protected void handleListRooms(ServerThread sender, String roomQuery) {
-        sender.sendRooms(Server.INSTANCE.listRooms(roomQuery));
+        RoomResultPayload payload = new RoomResultPayload();
+        payload.setRoomsWithCounts(Server.INSTANCE.listRoomsWithCounts());
+        sender.sendRooms(payload.getRooms());
     }
+
 
     public void handleCreateRoom(ServerThread sender, String roomName) {
         try {
@@ -276,6 +294,82 @@ public class Room implements AutoCloseable {
     // Description: Stub method for handling choice; override in GameRoom
     public void handleChoice(ServerThread client, String choice) {
         LoggerUtil.INSTANCE.warning("handleChoice not implemented in base Room");
+    }
+
+    @Override
+    public int getClientCount() {
+        return clientsInRoom.size();
+    }
+
+    public String getRoomName() {
+        return name;
+    }
+
+    public void broadcastReadyStatus(long clientId, boolean isReady) {
+        Payload readyPayload = new Payload();
+        readyPayload.setPayloadType(PayloadType.READY_STATUS);
+        readyPayload.setClientId(clientId);
+
+        ServerThread st = clientsInRoom.get(clientId);
+
+        if (st != null && st.getUser().isSpectator()) {
+            readyPayload.setMessage("SPECTATOR");
+        } else {
+            readyPayload.setMessage(isReady ? "READY" : "NOT READY");
+        }
+
+        clientsInRoom.values().forEach(serverThread -> {
+            if (serverThread.getUser() != null) {
+                serverThread.sendToClient(readyPayload);
+            }
+        });
+    }
+
+    private final List<ServerThread> clients = new CopyOnWriteArrayList<>();
+
+    public void joinRoom(ServerThread client) {
+        if (client == null) return;
+
+        if (this instanceof GameRoom) {
+            GameRoom gameRoom = (GameRoom) this;
+            if (gameRoom.isGameInProgress()) {
+                client.getUser().setSpectator(true);
+                client.setReady(false);
+
+                Payload spectatorPayload = new Payload();
+                spectatorPayload.setPayloadType(PayloadType.SPECTATOR);
+                client.sendToClient(spectatorPayload);
+            }
+        }
+
+        clients.add(client);
+        broadcastMessage("Player " + client.getClientName() + " joined the game.");
+        client.info("You joined the room");
+    }
+
+
+
+    public void broadcastMessage(String message) {
+        for (ServerThread client : clients) {
+            client.sendMessage(-1, message); // -1 means "from server"
+        }
+    }
+
+    public void leaveRoom(ServerThread client) {
+        clients.remove(client);
+        broadcastMessage("Player " + client.getClientName() + " left the room.");
+    }
+    
+    public boolean isHost(ServerThread client) {
+        return host != null && host.equals(client);
+    }
+
+    public ServerThread getHost() {
+        return host;
+    }
+
+    protected Collection<ServerThread> getClientsInRoom() {
+        return clientsInRoom.values();
     }
 
 
