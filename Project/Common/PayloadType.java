@@ -1,0 +1,28 @@
+package Project.Common;
+
+public enum PayloadType {
+    CLIENT_CONNECT,
+    CLIENT_ID,     
+    SYNC_CLIENT,    
+    DISCONNECT,    
+    ROOM_CREATE,
+    ROOM_JOIN,
+    ROOM_LEAVE,
+    REVERSE,
+    MESSAGE,         
+    ROOM_LIST,  
+    START,
+    CHOICE,
+    READY_STATUS,
+    POINTS,
+    POSTGAME_COUNTDOWN_TICK,
+    READY_STATUS_REMOVE,
+    READY,
+    EXTRA_OPTIONS,
+    GAME_SETTINGS,
+    AWAY_STATUS,
+    HOST_DISCONNECTED,
+    SPECTATOR,
+    USER_STATUS_UPDATE,
+    ROOM_CLOSING
+}
